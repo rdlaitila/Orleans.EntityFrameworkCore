@@ -14,12 +14,22 @@ Should be compatable with Orleans 2.x
 
 Install from https://www.nuget.org/packages/Orleans.EntityFrameworkCore/
 
-# Supported Providers
+# Supported Orleans Providers
 
 * IMembershipTable (used for orleans silo clustering rendezvous)
 * IGatewayListProvider (used for client clustering rendezvous)
 * IStorageProvider (used for grain state storage for any named provider)
 * IReminderTable (used for grain reminders)
+
+# Entity Framework Database Providers
+
+Theoretically all entity framework core database providers listed [here](https://docs.microsoft.com/en-us/ef/core/providers/) should work.
+
+The following entity framework core database providers have reported to work without issue
+
+* [Npgsql](http://www.npgsql.org/efcore/index.html)
+
+If you have used `Orleans.EntityFrameworkCore` successfully with a provider not listed here, please open an issue and report your experience!
 
 # Configuration Sample
 
