@@ -1,6 +1,6 @@
-using System;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using System;
 
 namespace Orleans.EntityFrameworkCore.Migrations
 {
@@ -14,19 +14,21 @@ namespace Orleans.EntityFrameworkCore.Migrations
                 name: "orleans_ef_membership",
                 columns: table => new
                 {
-                    deployment_id   = table.Column<string>(nullable: false),
-                    address         = table.Column<string>(nullable: false),
-                    port            = table.Column<int>(nullable: false),
-                    generation      = table.Column<int>(nullable: false),
-                    silo_name       = table.Column<string>(nullable: false),
-                    host_name       = table.Column<string>(nullable: false),
-                    status          = table.Column<int>(nullable: false),
-                    proxy_port      = table.Column<int>(nullable: false),
-                    suspect_times   = table.Column<string>(nullable: true),
-                    start_time      = table.Column<DateTime>(),
+                    deployment_id = table.Column<string>(nullable: false),
+                    address = table.Column<string>(nullable: false),
+                    port = table.Column<int>(nullable: false),
+                    generation = table.Column<int>(nullable: false),
+                    silo_name = table.Column<string>(nullable: false),
+                    host_name = table.Column<string>(nullable: false),
+                    status = table.Column<int>(nullable: false),
+                    proxy_port = table.Column<int>(nullable: false),
+                    suspect_times = table.Column<string>(nullable: true),
+                    start_time = table.Column<DateTime>(),
                     i_am_alive_time = table.Column<DateTime>(),
-                    fault_zone      = table.Column<int>(nullable: false),
-                    update_zone     = table.Column<int>(nullable: false)
+                    fault_zone = table.Column<int>(nullable: false),
+                    update_zone = table.Column<int>(nullable: false),
+                    created_at = table.Column<DateTime>(nullable: false),
+                    updated_at = table.Column<DateTime>(nullable: false),
                 },
                 constraints: table =>
                 {

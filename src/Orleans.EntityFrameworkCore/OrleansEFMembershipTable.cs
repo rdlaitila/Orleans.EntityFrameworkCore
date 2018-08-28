@@ -1,15 +1,13 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Orleans;
 using Orleans.Configuration;
-using Orleans.Hosting;
+using Orleans.EntityFrameworkCore.Extensions;
 using Orleans.Runtime;
+using System;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Orleans.EntityFrameworkCore
 {
@@ -41,7 +39,7 @@ namespace Orleans.EntityFrameworkCore
         /// lock when access to the context is attempted
         /// </summary>
         /// <returns></returns>
-        private static SemaphoreSlim contextThreadLock = new SemaphoreSlim(1,1);
+        private static SemaphoreSlim _lock = new SemaphoreSlim(1, 1);
 
         /// <summary>
         /// Constructor fed from DI
@@ -55,18 +53,14 @@ namespace Orleans.EntityFrameworkCore
             ILogger<OrleansEFMembershipTable> logger
         )
         {
-            if (db == null)
+            _db = db ??
                 throw new ArgumentNullException(nameof(db));
 
-            if (clusterOptions == null)
+            _clusterOptions = clusterOptions?.Value ??
                 throw new ArgumentNullException(nameof(clusterOptions));
 
-            if (logger == null)
+            _logger = logger ??
                 throw new ArgumentNullException(nameof(logger));
-
-            _db = db;
-            _clusterOptions = clusterOptions.Value;
-            _logger = logger;
         }
 
         /// <summary>
@@ -83,7 +77,7 @@ namespace Orleans.EntityFrameworkCore
 
                 throw new System.NotImplementedException();
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 _logger.Error(0, nameof(DeleteMembershipTableEntries), e);
                 throw;
@@ -101,7 +95,7 @@ namespace Orleans.EntityFrameworkCore
             {
                 return Task.CompletedTask;
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 _logger.Error(0, nameof(InitializeMembershipTable), e);
                 throw;
@@ -116,41 +110,39 @@ namespace Orleans.EntityFrameworkCore
         /// <returns></returns>
         public async Task<bool> InsertRow(MembershipEntry entry, TableVersion tableVersion)
         {
-            await contextThreadLock.WaitAsync();
-
             try
             {
-                if(entry == null)
+                if (entry == null)
                     throw new ArgumentNullException(nameof(entry));
 
                 if (tableVersion == null)
                     throw new ArgumentNullException(nameof(tableVersion));
 
-                var newRow = OrleansEFMapper.Map(entry);
-                newRow.DeploymentId = _clusterOptions.ClusterId;
-                newRow.Generation = entry.SiloAddress.Generation;
-                newRow.Address = entry.SiloAddress.Endpoint.Address.ToString();
-                newRow.Port = entry.SiloAddress.Endpoint.Port;
+                using (await _lock.DisposableWaitAsync())
+                {
+                    var newRow = OrleansEFMapper.Map(entry);
 
-                _db.Memberships.Add(newRow);
+                    newRow.DeploymentId = _clusterOptions.ClusterId;
+                    newRow.Generation = entry.SiloAddress.Generation;
+                    newRow.Address = entry.SiloAddress.Endpoint.Address.ToString();
+                    newRow.Port = entry.SiloAddress.Endpoint.Port;
 
-                await _db.SaveChangesAsync();
+                    _db.Memberships.Add(newRow);
 
-                _logger.Info(
-                    0, "{0}: {1}", nameof(InsertRow),
-                    $"inserted silo with address {entry.SiloAddress.Endpoint.ToString()} to membership table"
-                );
+                    await _db.SaveChangesAsync();
 
-                return true;
+                    _logger.Info(
+                        0, "{0}: {1}", nameof(InsertRow),
+                        $"inserted silo with address {entry.SiloAddress.Endpoint.ToString()} to membership table"
+                    );
+
+                    return true;
+                }
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 _logger.Error(0, nameof(InsertRow), e);
                 throw;
-            }
-            finally
-            {
-                contextThreadLock.Release();
             }
         }
 
@@ -160,24 +152,22 @@ namespace Orleans.EntityFrameworkCore
         /// <returns></returns>
         public async Task<MembershipTableData> ReadAll()
         {
-            await contextThreadLock.WaitAsync();
-
             try
             {
-                return OrleansEFMapper.Map(
-                    await _db.Memberships.Where(a =>
+                var rows = await _db
+                    .Memberships
+                    .AsNoTracking()
+                    .Where(a =>
                         a.DeploymentId == _clusterOptions.ClusterId
-                    ).ToListAsync()
-                );
+                    )
+                    .ToListAsync();
+
+                return OrleansEFMapper.Map(rows);
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 _logger.Error(0, nameof(ReadAll), e);
                 throw;
-            }
-            finally
-            {
-                contextThreadLock.Release();
             }
         }
 
@@ -188,19 +178,21 @@ namespace Orleans.EntityFrameworkCore
         /// <returns></returns>
         public async Task<MembershipTableData> ReadRow(SiloAddress key)
         {
-            await contextThreadLock.WaitAsync();
-
             try
             {
                 if (key == null)
                     throw new ArgumentNullException(nameof(key));
 
-                var rows = await _db.Memberships.Where(a =>
-                    a.DeploymentId == _clusterOptions.ClusterId &&
-                    a.Address == key.Endpoint.Address.ToString() &&
-                    a.Port == (uint)key.Endpoint.Port &&
-                    a.Generation == key.Generation
-                ).ToListAsync();
+                var rows = await _db
+                    .Memberships
+                    .AsNoTracking()
+                    .Where(a =>
+                        a.DeploymentId == _clusterOptions.ClusterId &&
+                        a.Address == key.Endpoint.Address.ToString() &&
+                        a.Port == (uint)key.Endpoint.Port &&
+                        a.Generation == key.Generation
+                    )
+                    .ToListAsync();
 
                 if (rows.Count == 0)
                     _logger.Warn(
@@ -210,14 +202,10 @@ namespace Orleans.EntityFrameworkCore
 
                 return OrleansEFMapper.Map(rows);
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 _logger.Error(0, nameof(ReadRow), e);
                 throw;
-            }
-            finally
-            {
-                contextThreadLock.Release();
             }
         }
 
@@ -228,40 +216,37 @@ namespace Orleans.EntityFrameworkCore
         /// <returns></returns>
         public async Task UpdateIAmAlive(MembershipEntry entry)
         {
-            await contextThreadLock.WaitAsync();
-
             try
             {
-                if(entry == null)
-                    throw new ArgumentNullException(nameof(entry));
+                using (await _lock.DisposableWaitAsync())
+                {
+                    if (entry == null)
+                        throw new ArgumentNullException(nameof(entry));
 
-                var row = await _db.Memberships.FirstOrDefaultAsync(a =>
-                    a.DeploymentId == _clusterOptions.ClusterId &&
-                    a.Address == entry.SiloAddress.Endpoint.Address.ToString() &&
-                    a.Port == (uint)entry.SiloAddress.Endpoint.Port &&
-                    a.Generation == entry.SiloAddress.Generation
-                );
+                    var row = await _db.Memberships.FirstOrDefaultAsync(a =>
+                        a.DeploymentId == _clusterOptions.ClusterId &&
+                        a.Address == entry.SiloAddress.Endpoint.Address.ToString() &&
+                        a.Port == (uint)entry.SiloAddress.Endpoint.Port &&
+                        a.Generation == entry.SiloAddress.Generation
+                    );
 
-                if (row == null)
-                    throw new UpdateIAmAliveException.RowNotFound(entry.SiloAddress);
+                    if (row == null)
+                        throw new UpdateIAmAliveException.RowNotFound(entry.SiloAddress);
 
-                row.IAmAliveTime = entry.IAmAliveTime;
+                    row.IAmAliveTime = entry.IAmAliveTime;
 
-                await _db.SaveChangesAsync();
+                    await _db.SaveChangesAsync();
 
-                _logger.Info(
-                    0, "{0}: {1}", nameof(UpdateIAmAlive),
-                    $"updated silo {entry.SiloAddress.Endpoint.ToString()} IAmAlive timestamp with {entry.IAmAliveTime}"
-                );
+                    _logger.Info(
+                        0, "{0}: {1}", nameof(UpdateIAmAlive),
+                        $"updated silo {entry.SiloAddress.Endpoint.ToString()} IAmAlive timestamp with {entry.IAmAliveTime}"
+                    );
+                }
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 _logger.Error(0, nameof(UpdateIAmAlive), e);
                 throw;
-            }
-            finally
-            {
-                contextThreadLock.Release();
             }
         }
 
@@ -270,11 +255,15 @@ namespace Orleans.EntityFrameworkCore
         /// </summary>
         public abstract class UpdateIAmAliveException : Exception
         {
-            public UpdateIAmAliveException(string message) : base(message) {}
+            public UpdateIAmAliveException(string message) : base(message)
+            {
+            }
 
             public class RowNotFound : UpdateIAmAliveException
             {
-                public RowNotFound(SiloAddress key) : base($"no rows with silo address {key.Endpoint.ToString()} found") {}
+                public RowNotFound(SiloAddress key) : base($"no rows with silo address {key.Endpoint.ToString()} found")
+                {
+                }
             }
         }
 
@@ -287,48 +276,47 @@ namespace Orleans.EntityFrameworkCore
         /// <returns></returns>
         public async Task<bool> UpdateRow(MembershipEntry entry, string etag, TableVersion tableVersion)
         {
-            await contextThreadLock.WaitAsync();
-
             try
             {
-                 if(entry == null)
-                    throw new ArgumentNullException(nameof(entry));
+                using (await _lock.DisposableWaitAsync())
+                {
+                    if (entry == null)
+                        throw new ArgumentNullException(nameof(entry));
 
-                if (string.IsNullOrWhiteSpace(etag))
-                    throw new ArgumentNullException(nameof(etag));
+                    if (string.IsNullOrWhiteSpace(etag))
+                        throw new ArgumentNullException(nameof(etag));
 
-                if (tableVersion == null)
-                    throw new ArgumentNullException(nameof(tableVersion));
+                    if (tableVersion == null)
+                        throw new ArgumentNullException(nameof(tableVersion));
 
-                var row = await _db.Memberships.FirstOrDefaultAsync(a =>
-                    a.DeploymentId == _clusterOptions.ClusterId &&
-                    a.Address == entry.SiloAddress.Endpoint.Address.ToString() &&
-                    a.Port == (uint)entry.SiloAddress.Endpoint.Port &&
-                    a.Generation == entry.SiloAddress.Generation
-                );
+                    var row = await _db.Memberships.FirstOrDefaultAsync(a =>
+                        a.DeploymentId == _clusterOptions.ClusterId &&
+                        a.Address == entry.SiloAddress.Endpoint.Address.ToString() &&
+                        a.Port == (uint)entry.SiloAddress.Endpoint.Port &&
+                        a.Generation == entry.SiloAddress.Generation
+                    );
 
-                if (row == null)
-                    throw new UpdateRowException.RowNotFound(entry.SiloAddress);
+                    if (row == null)
+                        throw new UpdateRowException.RowNotFound(
+                            entry.SiloAddress
+                        );
 
-                OrleansEFMapper.Map(entry, row);
+                    OrleansEFMapper.Map(entry, row);
 
-                await _db.SaveChangesAsync();
+                    await _db.SaveChangesAsync();
 
-                _logger.Info(
-                    0, "{0}: {1}", nameof(UpdateRow),
-                    $"updated silo {entry.SiloAddress.Endpoint.ToString()}"
-                );
+                    _logger.Info(
+                        0, "{0}: {1}", nameof(UpdateRow),
+                        $"updated silo {entry.SiloAddress.Endpoint.ToString()}"
+                    );
 
-                return true;
+                    return true;
+                }
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 _logger.Error(0, nameof(UpdateRow), e);
                 throw;
-            }
-            finally
-            {
-                contextThreadLock.Release();
             }
         }
 
@@ -337,11 +325,15 @@ namespace Orleans.EntityFrameworkCore
         /// </summary>
         public abstract class UpdateRowException : Exception
         {
-            public UpdateRowException(string message) : base(message) {}
+            public UpdateRowException(string message) : base(message)
+            {
+            }
 
             public class RowNotFound : UpdateRowException
             {
-                public RowNotFound(SiloAddress key) : base($"no rows with silo address {key.Endpoint.ToString()} found") {}
+                public RowNotFound(SiloAddress key) : base($"no rows with silo address {key.Endpoint.ToString()} found")
+                {
+                }
             }
         }
     }

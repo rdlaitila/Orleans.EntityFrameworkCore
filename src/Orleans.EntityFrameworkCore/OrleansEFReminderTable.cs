@@ -1,56 +1,247 @@
-using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Orleans;
 using Orleans.Configuration;
+using Orleans.EntityFrameworkCore.Extensions;
 using Orleans.Runtime;
+using System;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Orleans.EntityFrameworkCore
 {
+    /// <summary>
+    /// Provides an IReminderTable implementation wrapping orleans operations
+    /// translating them into entity framework calls
+    /// </summary>
     public class OrleansEFReminderTable : IReminderTable
     {
+        /// <summary>
+        /// The database
+        /// </summary>
         private readonly OrleansEFContext _db;
 
+        /// <summary>
+        /// The logger
+        /// </summary>
+        private readonly ILogger<OrleansEFReminderTable> _logger;
+
+        /// <summary>
+        /// The cluster options
+        /// </summary>
         private readonly ClusterOptions _clusterOptions;
 
-        public OrleansEFReminderTable(OrleansEFContext db, IOptions<ClusterOptions> clusterOptions)
+        /// <summary>
+        /// The grain factory
+        /// </summary>
+        private readonly IGrainFactory _grainFactory;
+
+        /// <summary>
+        /// The grain reference converter
+        /// </summary>
+        private readonly IGrainReferenceConverter _grainReferenceConverter;
+
+        /// <summary>
+        /// Orleans appears to attempt access to IReminderTable in seperate threads
+        /// which breaks access requirements of EF contexts thus we must
+        /// lock when access to the context is attempted
+        /// </summary>
+        /// <returns></returns>
+        private static SemaphoreSlim _lock = new SemaphoreSlim(1, 1);
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="OrleansEFReminderTable"/> class.
+        /// </summary>
+        /// <param name="db">The database.</param>
+        /// <param name="clusterOptions">The cluster options.</param>
+        /// <param name="grainFactory">The grain factory.</param>
+        /// <exception cref="ArgumentNullException">
+        /// db
+        /// or
+        /// clusterOptions
+        /// or
+        /// grainFactory
+        /// </exception>
+        public OrleansEFReminderTable(
+            IOptions<ClusterOptions> clusterOptions,
+            IGrainFactory grainFactory,
+            ILogger<OrleansEFReminderTable> logger,
+            IGrainReferenceConverter grainReferenceConverter,
+            OrleansEFContext db
+        )
         {
-            _db = db;
-            _clusterOptions = clusterOptions.Value;
+            _clusterOptions = clusterOptions?.Value ??
+                throw new ArgumentNullException(nameof(clusterOptions));
+
+            _grainFactory = grainFactory ??
+                throw new ArgumentNullException(nameof(grainFactory));
+
+            _logger = logger ??
+                throw new ArgumentNullException(nameof(logger));
+
+            _grainReferenceConverter = grainReferenceConverter ??
+                throw new ArgumentNullException(nameof(grainReferenceConverter));
+
+            _db = db ??
+                throw new ArgumentNullException(nameof(db));
         }
 
+        /// <summary>
+        /// Initializes this instance.
+        /// </summary>
+        /// <returns></returns>
         public Task Init()
         {
-            throw new System.NotImplementedException();
+            return Task.CompletedTask;
         }
 
-        public Task<ReminderEntry> ReadRow(GrainReference grainRef, string reminderName)
+        /// <summary>
+        /// Reads the row.
+        /// </summary>
+        /// <param name="grainRef">The grain reference.</param>
+        /// <param name="reminderName">Name of the reminder.</param>
+        /// <returns></returns>
+        /// <exception cref="System.NotImplementedException"></exception>
+        public async Task<ReminderEntry> ReadRow(
+            GrainReference grainRef,
+            string reminderName
+        )
         {
-            throw new System.NotImplementedException();
+            try
+            {
+                return await _grainFactory
+                    .GetGrain<IOrleansEFReminderGrain>(grainRef.ToKeyString())
+                    .ReadRow(grainRef, reminderName);
+            }
+            catch (Exception e)
+            {
+                _logger.Error(0, nameof(ReadRow), e);
+                throw;
+            }
         }
 
-        public Task<ReminderTableData> ReadRows(GrainReference key)
+        /// <summary>
+        /// Reads the rows.
+        /// </summary>
+        /// <param name="key">The key.</param>
+        /// <returns></returns>
+        /// <exception cref="System.NotImplementedException"></exception>
+        public async Task<ReminderTableData> ReadRows(
+            GrainReference key
+        )
         {
-            throw new System.NotImplementedException();
+            try
+            {
+                return await _grainFactory
+                    .GetGrain<IOrleansEFReminderGrain>(key.ToKeyString())
+                    .ReadRows(key);
+            }
+            catch (Exception e)
+            {
+                _logger.Error(0, nameof(ReadRows), e);
+                throw;
+            }
         }
 
-        public Task<ReminderTableData> ReadRows(uint begin, uint end)
+        /// <summary>
+        /// Return all rows that have their GrainReference's.GetUniformHashCode() in the range (start, end]
+        /// </summary>
+        /// <param name="begin"></param>
+        /// <param name="end"></param>
+        /// <returns></returns>
+        /// <exception cref="System.NotImplementedException"></exception>
+        public async Task<ReminderTableData> ReadRows(
+            uint begin,
+            uint end
+        )
         {
-            throw new System.NotImplementedException();
+            try
+            {
+                using (await _lock.DisposableWaitAsync())
+                {
+                    var rows = await _db
+                        .Reminders
+                        .Where(a =>
+                            a.ServiceId == _clusterOptions.ServiceId &&
+                            a.GrainHash >= begin &&
+                            a.GrainHash <= end
+                        )
+                        .ToListAsync();
+
+                    return OrleansEFMapper.Map(
+                        _grainReferenceConverter,
+                        rows
+                    );
+                }
+            }
+            catch (Exception e)
+            {
+                _logger.Error(0, nameof(ReadRows), e);
+                throw;
+            }
         }
 
-        public Task<bool> RemoveRow(GrainReference grainRef, string reminderName, string eTag)
+        /// <summary>
+        /// Remove a row from the table.
+        /// </summary>
+        /// <param name="grainRef"></param>
+        /// <param name="reminderName"></param>
+        /// <param name="eTag"></param>
+        /// <returns>
+        /// true if a row with <paramref name="grainRef" /> and <paramref name="reminderName" /> existed and was removed successfully, false otherwise
+        /// </returns>
+        /// <exception cref="NotImplementedException"></exception>
+        public async Task<bool> RemoveRow(
+            GrainReference grainRef,
+            string reminderName,
+            string eTag
+        )
         {
-            throw new System.NotImplementedException();
+            try
+            {
+                return await _grainFactory
+                   .GetGrain<IOrleansEFReminderGrain>(grainRef.ToKeyString())
+                   .RemoveRow(grainRef, reminderName, eTag);
+            }
+            catch (Exception e)
+            {
+                _logger.Error(0, nameof(RemoveRow), e);
+                throw;
+            }
         }
 
+        /// <summary>
+        /// Tests the only clear table.
+        /// </summary>
+        /// <returns></returns>
+        /// <exception cref="System.NotImplementedException"></exception>
         public Task TestOnlyClearTable()
         {
-            throw new System.NotImplementedException();
+            return Task.CompletedTask;
         }
 
-        public Task<string> UpsertRow(ReminderEntry entry)
+        /// <summary>
+        /// Upserts the row.
+        /// </summary>
+        /// <param name="entry">The entry.</param>
+        /// <returns></returns>
+        /// <exception cref="System.NotImplementedException"></exception>
+        public async Task<string> UpsertRow(
+            ReminderEntry entry
+        )
         {
-            throw new System.NotImplementedException();
+            try
+            {
+                return await _grainFactory
+                    .GetGrain<IOrleansEFReminderGrain>(entry.GrainRef.ToKeyString())
+                    .UpsertRow(entry);
+            }
+            catch (Exception e)
+            {
+                _logger.Error(0, nameof(UpsertRow), e);
+                throw;
+            }
         }
     }
 }

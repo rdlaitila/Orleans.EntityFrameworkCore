@@ -1,18 +1,25 @@
+using Orleans.Runtime;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using System.Text;
-using Orleans;
-using Orleans.Runtime;
 
 namespace Orleans.EntityFrameworkCore
 {
-    public static class OrleansEFMapper
+    /// <summary>
+    /// </summary>
+    internal static class OrleansEFMapper
     {
-        public static MembershipTableData Map(List<OrleansEFMembership> src, MembershipTableData dst = null)
+        /// <summary>
+        /// Maps the specified source.
+        /// </summary>
+        /// <param name="src">The source.</param>
+        /// <param name="dst">The DST.</param>
+        /// <returns></returns>
+        internal static MembershipTableData Map(List<OrleansEFMembership> src, MembershipTableData dst = null)
         {
-            var entries = src.Select(a => {
+            var entries = src.Select(a =>
+            {
                 return new Tuple<MembershipEntry, string>(
                     new MembershipEntry
                     {
@@ -31,7 +38,8 @@ namespace Orleans.EntityFrameworkCore
                         FaultZone = a.FaultZone,
                         SuspectTimes = a.SuspectTimes?.Split(";").Where(b =>
                             !string.IsNullOrWhiteSpace(b)
-                        ).Select(b => {
+                        ).Select(b =>
+                        {
                             var split = b.Split("::");
                             return new Tuple<SiloAddress, DateTime>(
                                 SiloAddress.FromParsableString(split[0]),
@@ -51,7 +59,13 @@ namespace Orleans.EntityFrameworkCore
             return dst;
         }
 
-        public static OrleansEFMembership Map(MembershipEntry src, OrleansEFMembership dst = null)
+        /// <summary>
+        /// Maps the specified source.
+        /// </summary>
+        /// <param name="src">The source.</param>
+        /// <param name="dst">The DST.</param>
+        /// <returns></returns>
+        internal static OrleansEFMembership Map(MembershipEntry src, OrleansEFMembership dst = null)
         {
             dst = dst ?? new OrleansEFMembership();
 
@@ -70,12 +84,76 @@ namespace Orleans.EntityFrameworkCore
             return dst;
         }
 
-        public static SiloAddress Map(string srcAddress, int srcPort, int srcGeneration, SiloAddress dst = null)
+        /// <summary>
+        /// Maps the specified source address.
+        /// </summary>
+        /// <param name="srcAddress">The source address.</param>
+        /// <param name="srcPort">The source port.</param>
+        /// <param name="srcGeneration">The source generation.</param>
+        /// <param name="dst">The DST.</param>
+        /// <returns></returns>
+        internal static SiloAddress Map(string srcAddress, int srcPort, int srcGeneration, SiloAddress dst = null)
         {
             dst = dst ?? SiloAddress.New(
                 new IPEndPoint(IPAddress.Parse(srcAddress), srcPort),
                 srcGeneration
             );
+            return dst;
+        }
+
+        /// <summary>
+        /// Maps the specified source.
+        /// </summary>
+        /// <param name="src">The source.</param>
+        /// <param name="dst">The DST.</param>
+        /// <returns></returns>
+        internal static ReminderTableData Map(IGrainReferenceConverter converter, List<OrleansEFReminder> src, ReminderTableData dst = null)
+        {
+            var entries = src
+                .Select(a => Map(converter, a))
+                .ToList();
+
+            dst = dst ?? new ReminderTableData(entries);
+
+            return dst;
+        }
+
+        /// <summary>
+        /// Maps the specified converter.
+        /// </summary>
+        /// <param name="converter">The converter.</param>
+        /// <param name="src">The source.</param>
+        /// <param name="dst">The DST.</param>
+        /// <returns></returns>
+        internal static ReminderEntry Map(IGrainReferenceConverter converter, OrleansEFReminder src, ReminderEntry dst = null)
+        {
+            dst = dst ?? new ReminderEntry();
+
+            dst.ETag = src.ETag;
+            dst.GrainRef = converter.GetGrainFromKeyString(src.GrainId);
+            dst.Period = TimeSpan.FromMilliseconds(src.Period);
+            dst.ReminderName = src.ReminderName;
+            dst.StartAt = src.StartTime;
+
+            return dst;
+        }
+
+        /// <summary>
+        /// Maps the specified source.
+        /// </summary>
+        /// <param name="src">The source.</param>
+        /// <param name="dst">The DST.</param>
+        /// <returns></returns>
+        internal static OrleansEFReminder Map(ReminderEntry src, OrleansEFReminder dst = null)
+        {
+            dst = dst ?? new OrleansEFReminder();
+
+            dst.GrainId = src.GrainRef.ToKeyString();
+            dst.ETag = src.ETag;
+            dst.GrainHash = (int)src.GrainRef.GetUniformHashCode();
+            dst.Period = src.Period.Milliseconds;
+            dst.StartTime = src.StartAt;
+
             return dst;
         }
     }

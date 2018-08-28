@@ -1,38 +1,178 @@
-using System.Threading.Tasks;
-using Orleans;
+using Microsoft.Extensions.Logging;
 using Orleans.Providers;
 using Orleans.Runtime;
+using Orleans.Serialization;
 using Orleans.Storage;
+using System;
+using System.Threading.Tasks;
 
 namespace Orleans.EntityFrameworkCore
 {
-    public class OrleansEFStorageProvider : IStorageProvider
+    /// <summary>
+    /// Provides an IStorageProvider implementation wrapping orleans operations
+    /// translating them into entity framework calls
+    /// </summary>
+    internal class OrleansEFStorageProvider : IStorageProvider
     {
-        public string Name => throw new System.NotImplementedException();
+        /// <summary>
+        /// Gets the name.
+        /// </summary>
+        /// <value>
+        /// The name.
+        /// </value>
+        public string Name { get; private set; }
 
-        public Task ClearStateAsync(string grainType, GrainReference grainReference, IGrainState grainState)
+        /// <summary>
+        /// The logger
+        /// </summary>
+        private readonly ILogger<OrleansEFStorageProvider> _logger;
+
+        /// <summary>
+        /// The grain factory
+        /// </summary>
+        private readonly IGrainFactory _grainFactory;
+
+        /// <summary>
+        /// The serialization manager
+        /// </summary>
+        private readonly SerializationManager _serializationManager;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="OrleansEFStorageProvider"/> class.
+        /// </summary>
+        /// <param name="logger">The logger.</param>
+        /// <param name="grainFactory">The grain factory.</param>
+        /// <param name="serializationManager">The serialization manager.</param>
+        /// <exception cref="ArgumentNullException">
+        /// logger
+        /// or
+        /// grainFactory
+        /// or
+        /// serializationManager
+        /// </exception>
+        public OrleansEFStorageProvider(
+            ILogger<OrleansEFStorageProvider> logger,
+            IGrainFactory grainFactory,
+            SerializationManager serializationManager
+        )
         {
-            throw new System.NotImplementedException();
+            _logger = logger ??
+                throw new ArgumentNullException(nameof(logger));
+
+            _grainFactory = grainFactory ??
+                throw new ArgumentNullException(nameof(grainFactory));
+
+            _serializationManager = serializationManager ??
+                throw new ArgumentNullException(nameof(serializationManager));
         }
 
+        /// <summary>
+        /// Clears the state asynchronous.
+        /// </summary>
+        /// <param name="grainType">Type of the grain.</param>
+        /// <param name="grainReference">The grain reference.</param>
+        /// <param name="grainState">State of the grain.</param>
+        /// <returns></returns>
+        public async Task ClearStateAsync(
+            string grainType,
+            GrainReference grainReference,
+            IGrainState grainState
+        )
+        {
+            try
+            {
+                await _grainFactory
+                   .GetGrain<IOrleansEFStorageGrain>(grainReference.ToKeyString())
+                   .ClearStateAsync(grainType, grainReference, grainState);
+            }
+            catch (Exception e)
+            {
+                _logger.Error(0, nameof(ClearStateAsync), e);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Closes this instance.
+        /// </summary>
+        /// <returns></returns>
         public Task Close()
         {
-            throw new System.NotImplementedException();
+            return Task.CompletedTask;
         }
 
-        public Task Init(string name, IProviderRuntime providerRuntime, IProviderConfiguration config)
+        /// <summary>
+        /// Initializes the specified name.
+        /// </summary>
+        /// <param name="name">The name.</param>
+        /// <param name="providerRuntime">The provider runtime.</param>
+        /// <param name="config">The configuration.</param>
+        /// <returns></returns>
+        public Task Init(
+            string name,
+            IProviderRuntime providerRuntime,
+            IProviderConfiguration config
+        )
         {
-            throw new System.NotImplementedException();
+            Name = name;
+            return Task.CompletedTask;
         }
 
-        public Task ReadStateAsync(string grainType, GrainReference grainReference, IGrainState grainState)
+        /// <summary>
+        /// Reads the state asynchronous.
+        /// </summary>
+        /// <param name="grainType">Type of the grain.</param>
+        /// <param name="grainReference">The grain reference.</param>
+        /// <param name="grainState">State of the grain.</param>
+        /// <returns></returns>
+        public async Task ReadStateAsync(
+            string grainType,
+            GrainReference grainReference,
+            IGrainState grainState
+        )
         {
-            throw new System.NotImplementedException();
+            try
+            {
+                var state = await _grainFactory
+                   .GetGrain<IOrleansEFStorageGrain>(grainReference.ToKeyString())
+                   .ReadStateAsync(grainType, grainReference, grainState);
+
+                grainState.State = state.State;
+                grainState.ETag = state.ETag;
+            }
+            catch (Exception e)
+            {
+                _logger.Error(0, nameof(ReadStateAsync), e);
+                throw;
+            }
         }
 
-        public Task WriteStateAsync(string grainType, GrainReference grainReference, IGrainState grainState)
+        /// <summary>
+        /// Writes the state asynchronous.
+        /// </summary>
+        /// <param name="grainType">Type of the grain.</param>
+        /// <param name="grainReference">The grain reference.</param>
+        /// <param name="grainState">State of the grain.</param>
+        /// <returns></returns>
+        public async Task WriteStateAsync(
+            string grainType,
+            GrainReference grainReference,
+            IGrainState grainState
+        )
         {
-            throw new System.NotImplementedException();
+            try
+            {
+                await _grainFactory
+                    .GetGrain<IOrleansEFStorageGrain>(grainReference.ToKeyString())
+                    .WriteStateAsync(grainType, grainReference, grainState);
+
+                return;
+            }
+            catch (Exception e)
+            {
+                _logger.Error(0, nameof(WriteStateAsync), e);
+                throw;
+            }
         }
     }
 }

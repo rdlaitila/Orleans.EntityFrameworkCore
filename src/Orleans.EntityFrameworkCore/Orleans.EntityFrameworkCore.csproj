@@ -1,23 +1,28 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp2.0</TargetFramework>
+    <OutputType>Library</OutputType>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
     <LangVersion>7.1</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <PackageId>Orleans.EntityFrameworkCore</PackageId>
-    <Version>1.0.0</Version>
+    <Version>0.1.1</Version>
     <Authors>Regan Laitila</Authors>
     <Company></Company>
-    <PackageTags>MicrosoftOrleans;Orleans;EntityFrameworkCore</PackageTags>
+    <PackageTags>MicrosoftOrleans;Orleans;EntityFrameworkCore;GrainStorage;StorageProvider</PackageTags>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <ApplicationIcon />
+    <StartupObject />
+    <RepositoryUrl>https://github.com/rdlaitila/Orleans.EntityFrameworkCore</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/rdlaitila/Orleans.EntityFrameworkCore</PackageProjectUrl>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="2.0.3" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="2.0.3" />
-    <PackageReference Include="Microsoft.Orleans.Core" Version="2.0.0" />
-    <PackageReference Include="Microsoft.Orleans.Server" Version="2.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="[2.1.0, 3.0)" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="[2.1.0, 3.0)" />
+    <PackageReference Include="Microsoft.Orleans.Core" Version="[2.0.3, 3.0)" />
+    <PackageReference Include="Microsoft.Orleans.OrleansCodeGenerator.Build" Version="[2.0.4, 3.0)" />
+    <PackageReference Include="Microsoft.Orleans.Server" Version="[2.0.4, 3.0)" />
   </ItemGroup>
 
 </Project>

@@ -1,13 +1,13 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Orleans.Configuration;
 using Orleans.Messaging;
 using Orleans.Runtime;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace Orleans.EntityFrameworkCore
 {
@@ -21,7 +21,7 @@ namespace Orleans.EntityFrameworkCore
         /// MaxStaleness
         /// </summary>
         /// <returns></returns>
-        public TimeSpan MaxStaleness {get; internal set;}
+        public TimeSpan MaxStaleness { get; internal set; }
 
         /// <summary>
         /// IsUpdatable
@@ -78,7 +78,8 @@ namespace Orleans.EntityFrameworkCore
                         membership.Status == (int)SiloStatus.Active &&
                         membership.DeploymentId == _clusterOptions.ClusterId
                     )
-                    .Select(membership => new {
+                    .Select(membership => new
+                    {
                         membership.Address,
                         membership.ProxyPort,
                         membership.Generation
@@ -88,14 +89,14 @@ namespace Orleans.EntityFrameworkCore
                 var gatewayUris = siloData.Select(a =>
                     OrleansEFMapper.Map(
                         a.Address,
-                        (int)a.ProxyPort,
+                        a.ProxyPort,
                         a.Generation
                     ).ToGatewayUri()
                 ).ToList();
 
                 return gatewayUris;
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 _logger.Error(0, nameof(GetGateways), e);
                 throw;
