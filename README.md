@@ -86,3 +86,7 @@ using (var scope = silo.Services.CreateScope())
     await context.AutoMigrate();
 }
 ```
+
+# License
+
+This project is licensed under the terms of the [MIT license](LICENSE.md)
