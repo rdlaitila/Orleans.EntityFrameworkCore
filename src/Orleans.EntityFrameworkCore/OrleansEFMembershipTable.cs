@@ -154,15 +154,17 @@ namespace Orleans.EntityFrameworkCore
         {
             try
             {
-                var rows = await _db
-                    .Memberships
-                    .AsNoTracking()
-                    .Where(a =>
-                        a.DeploymentId == _clusterOptions.ClusterId
-                    )
-                    .ToListAsync();
+                using (await _lock.DisposableWaitAsync())
+                {
+                    var rows = await _db
+                        .Memberships
+                        .Where(a =>
+                            a.DeploymentId == _clusterOptions.ClusterId
+                        )
+                        .ToListAsync();
 
-                return OrleansEFMapper.Map(rows);
+                    return OrleansEFMapper.Map(rows);
+                }
             }
             catch (Exception e)
             {
@@ -180,27 +182,29 @@ namespace Orleans.EntityFrameworkCore
         {
             try
             {
-                if (key == null)
-                    throw new ArgumentNullException(nameof(key));
+                using (await _lock.DisposableWaitAsync())
+                {
+                    if (key == null)
+                        throw new ArgumentNullException(nameof(key));
 
-                var rows = await _db
-                    .Memberships
-                    .AsNoTracking()
-                    .Where(a =>
-                        a.DeploymentId == _clusterOptions.ClusterId &&
-                        a.Address == key.Endpoint.Address.ToString() &&
-                        a.Port == (uint)key.Endpoint.Port &&
-                        a.Generation == key.Generation
-                    )
-                    .ToListAsync();
+                    var rows = await _db
+                        .Memberships
+                        .Where(a =>
+                            a.DeploymentId == _clusterOptions.ClusterId &&
+                            a.Address == key.Endpoint.Address.ToString() &&
+                            a.Port == (uint)key.Endpoint.Port &&
+                            a.Generation == key.Generation
+                        )
+                        .ToListAsync();
 
-                if (rows.Count == 0)
-                    _logger.Warn(
-                        0, "{0}: {1}", nameof(ReadRow),
-                        $"no rows with silo address {key.Endpoint.ToString()} found"
-                    );
+                    if (rows.Count == 0)
+                        _logger.Warn(
+                            0, "{0}: {1}", nameof(ReadRow),
+                            $"no rows with silo address {key.Endpoint.ToString()} found"
+                        );
 
-                return OrleansEFMapper.Map(rows);
+                    return OrleansEFMapper.Map(rows);
+                }
             }
             catch (Exception e)
             {
@@ -223,12 +227,14 @@ namespace Orleans.EntityFrameworkCore
                     if (entry == null)
                         throw new ArgumentNullException(nameof(entry));
 
-                    var row = await _db.Memberships.FirstOrDefaultAsync(a =>
-                        a.DeploymentId == _clusterOptions.ClusterId &&
-                        a.Address == entry.SiloAddress.Endpoint.Address.ToString() &&
-                        a.Port == (uint)entry.SiloAddress.Endpoint.Port &&
-                        a.Generation == entry.SiloAddress.Generation
-                    );
+                    var row = await _db
+                        .Memberships
+                        .FirstOrDefaultAsync(a =>
+                            a.DeploymentId == _clusterOptions.ClusterId &&
+                            a.Address == entry.SiloAddress.Endpoint.Address.ToString() &&
+                            a.Port == (uint)entry.SiloAddress.Endpoint.Port &&
+                            a.Generation == entry.SiloAddress.Generation
+                        );
 
                     if (row == null)
                         throw new UpdateIAmAliveException.RowNotFound(entry.SiloAddress);
@@ -289,12 +295,14 @@ namespace Orleans.EntityFrameworkCore
                     if (tableVersion == null)
                         throw new ArgumentNullException(nameof(tableVersion));
 
-                    var row = await _db.Memberships.FirstOrDefaultAsync(a =>
-                        a.DeploymentId == _clusterOptions.ClusterId &&
-                        a.Address == entry.SiloAddress.Endpoint.Address.ToString() &&
-                        a.Port == (uint)entry.SiloAddress.Endpoint.Port &&
-                        a.Generation == entry.SiloAddress.Generation
-                    );
+                    var row = await _db
+                        .Memberships
+                        .FirstOrDefaultAsync(a =>
+                            a.DeploymentId == _clusterOptions.ClusterId &&
+                            a.Address == entry.SiloAddress.Endpoint.Address.ToString() &&
+                            a.Port == (uint)entry.SiloAddress.Endpoint.Port &&
+                            a.Generation == entry.SiloAddress.Generation
+                        );
 
                     if (row == null)
                         throw new UpdateRowException.RowNotFound(
