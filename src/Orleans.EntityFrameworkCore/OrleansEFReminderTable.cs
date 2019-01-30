@@ -158,14 +158,17 @@ namespace Orleans.EntityFrameworkCore
         {
             try
             {
+                var iBegin = (int)begin;
+                var iEnd = (int)end;
+
                 using (await _lock.DisposableWaitAsync())
                 {
                     var rows = await _db
                         .Reminders
                         .Where(a =>
                             a.ServiceId == _clusterOptions.ServiceId &&
-                            a.GrainHash >= begin &&
-                            a.GrainHash <= end
+                            a.GrainHash >= iBegin &&
+                            a.GrainHash <= iEnd
                         )
                         .ToListAsync();
 

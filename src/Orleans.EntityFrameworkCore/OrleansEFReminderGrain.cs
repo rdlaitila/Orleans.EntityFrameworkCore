@@ -141,7 +141,9 @@ namespace Orleans.EntityFrameworkCore
 
             if (row.ETag != eTag)
                 throw new OrleansEFReminderException.EtagMismatch(
-                    $"etag mismatch. grainId: {grainRef.ToKeyString()} reminderName: {reminderName}"
+                    $"etag mismatch. " +
+                    $"grainId: {grainRef.ToKeyString()} " +
+                    $"reminderName: {reminderName}"
                 );
 
             _db.Reminders.Remove(row);
@@ -167,7 +169,9 @@ namespace Orleans.EntityFrameworkCore
             {
                 if (entry.ETag != row.ETag)
                     throw new OrleansEFReminderException.EtagMismatch(
-                        $"etag mismatch. grainId: {entry.GrainRef.ToKeyString()} reminderName: {entry.ReminderName}"
+                        $"etag mismatch. " +
+                        $"grainId: {entry.GrainRef.ToKeyString()} " +
+                        $"reminderName: {entry.ReminderName}"
                     );
 
                 _db.Remove(row);
