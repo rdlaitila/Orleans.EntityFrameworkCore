@@ -6,7 +6,7 @@ namespace Orleans.EntityFrameworkCore
     /// <summary>
     /// </summary>
     /// <seealso cref="Orleans.EntityFrameworkCore.OrleansEFEntity" />
-    [Table("orleans_ef_reminders")]
+    [Table("orleans_ef_reminder")]
     public class OrleansEFReminder : OrleansEFEntity
     {
         /// <summary>
