@@ -153,6 +153,7 @@ namespace Orleans.EntityFrameworkCore
             dst.GrainHash = (int)src.GrainRef.GetUniformHashCode();
             dst.Period = src.Period.Milliseconds;
             dst.StartTime = src.StartAt;
+            dst.ReminderName = src.ReminderName;
 
             return dst;
         }

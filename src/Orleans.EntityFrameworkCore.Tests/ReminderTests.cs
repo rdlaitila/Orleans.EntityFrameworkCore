@@ -58,13 +58,17 @@ namespace Orleans.EntityFrameworkCore.Tests
 
             await grain.WakeUp();
 
-            var reminder = await _context.Reminders.FirstOrDefaultAsync();
+            var reminder = await _context
+                .Reminders
+                .AsNoTracking()
+                .FirstOrDefaultAsync();
 
             Assert.IsNotNull(reminder);
 
             await Task.Delay(TimeSpan.FromSeconds(62));
 
             Assert.AreEqual(true, await grain.ReminderCalled());
+            Assert.AreEqual(true, await grain.ReminderUnregistered());
         }
 
         private static ISiloHost BuildHost(

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore.Internal;
 using Orleans.Runtime;
 
 namespace Orleans.EntityFrameworkCore.Tests
@@ -9,6 +10,10 @@ namespace Orleans.EntityFrameworkCore.Tests
         Task WakeUp();
 
         Task<bool> ReminderCalled();
+
+        Task UnregisterReminder();
+
+        Task<bool> ReminderUnregistered();
     }
 
     public class ReminderGrain : Grain, IReminderGrain, IRemindable
@@ -40,6 +45,17 @@ namespace Orleans.EntityFrameworkCore.Tests
         public Task<bool> ReminderCalled()
         {
             return Task.FromResult(_reminderCalled);
+        }
+
+        public async Task UnregisterReminder()
+        {
+            await UnregisterReminder(await GetReminder("test"));
+        }
+
+        public async Task<bool> ReminderUnregistered()
+        {
+            var reminders = await GetReminders();
+            return !reminders.Any();
         }
     }
 }
