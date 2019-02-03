@@ -16,7 +16,10 @@ namespace Orleans.EntityFrameworkCore
         /// <param name="src">The source.</param>
         /// <param name="dst">The DST.</param>
         /// <returns></returns>
-        internal static MembershipTableData Map(List<OrleansEFMembership> src, MembershipTableData dst = null)
+        internal static MembershipTableData Map(
+            List<OrleansEFMembership> src,
+            MembershipTableData dst = null
+        )
         {
             var entries = src.Select(a =>
             {
@@ -65,7 +68,10 @@ namespace Orleans.EntityFrameworkCore
         /// <param name="src">The source.</param>
         /// <param name="dst">The DST.</param>
         /// <returns></returns>
-        internal static OrleansEFMembership Map(MembershipEntry src, OrleansEFMembership dst = null)
+        internal static OrleansEFMembership Map(
+            MembershipEntry src,
+            OrleansEFMembership dst = null
+        )
         {
             dst = dst ?? new OrleansEFMembership();
 
@@ -92,7 +98,12 @@ namespace Orleans.EntityFrameworkCore
         /// <param name="srcGeneration">The source generation.</param>
         /// <param name="dst">The DST.</param>
         /// <returns></returns>
-        internal static SiloAddress Map(string srcAddress, int srcPort, int srcGeneration, SiloAddress dst = null)
+        internal static SiloAddress Map(
+            string srcAddress,
+            int srcPort,
+            int srcGeneration,
+            SiloAddress dst = null
+        )
         {
             dst = dst ?? SiloAddress.New(
                 new IPEndPoint(IPAddress.Parse(srcAddress), srcPort),
@@ -107,7 +118,11 @@ namespace Orleans.EntityFrameworkCore
         /// <param name="src">The source.</param>
         /// <param name="dst">The DST.</param>
         /// <returns></returns>
-        internal static ReminderTableData Map(IGrainReferenceConverter converter, List<OrleansEFReminder> src, ReminderTableData dst = null)
+        internal static ReminderTableData Map(
+            IGrainReferenceConverter converter,
+            List<OrleansEFReminder> src,
+            ReminderTableData dst = null
+        )
         {
             var entries = src
                 .Select(a => Map(converter, a))
@@ -125,7 +140,11 @@ namespace Orleans.EntityFrameworkCore
         /// <param name="src">The source.</param>
         /// <param name="dst">The DST.</param>
         /// <returns></returns>
-        internal static ReminderEntry Map(IGrainReferenceConverter converter, OrleansEFReminder src, ReminderEntry dst = null)
+        internal static ReminderEntry Map(
+            IGrainReferenceConverter converter,
+            OrleansEFReminder src,
+            ReminderEntry dst = null
+        )
         {
             dst = dst ?? new ReminderEntry();
 
@@ -144,7 +163,11 @@ namespace Orleans.EntityFrameworkCore
         /// <param name="src">The source.</param>
         /// <param name="dst">The DST.</param>
         /// <returns></returns>
-        internal static OrleansEFReminder Map(ReminderEntry src, OrleansEFReminder dst = null)
+        internal static OrleansEFReminder Map(
+            ReminderEntry src,
+            OrleansEFReminder dst = null,
+            string serviceId = null
+        )
         {
             dst = dst ?? new OrleansEFReminder();
 
@@ -154,6 +177,7 @@ namespace Orleans.EntityFrameworkCore
             dst.Period = src.Period.Milliseconds;
             dst.StartTime = src.StartAt;
             dst.ReminderName = src.ReminderName;
+            dst.ServiceId = serviceId;
 
             return dst;
         }

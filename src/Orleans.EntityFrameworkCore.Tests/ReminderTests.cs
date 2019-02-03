@@ -68,6 +68,9 @@ namespace Orleans.EntityFrameworkCore.Tests
             await Task.Delay(TimeSpan.FromSeconds(62));
 
             Assert.AreEqual(true, await grain.ReminderCalled());
+
+            await grain.UnregisterReminder();
+
             Assert.AreEqual(true, await grain.ReminderUnregistered());
         }
 

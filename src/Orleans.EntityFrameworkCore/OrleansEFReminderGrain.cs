@@ -165,7 +165,10 @@ namespace Orleans.EntityFrameworkCore
                     a.ReminderName == entry.ReminderName
                 );
 
-            if (row != null)
+            var nullRow =
+                row == null;
+
+            if (!nullRow)
             {
                 if (entry.ETag != row.ETag)
                     throw new OrleansEFReminderException.EtagMismatch(
@@ -173,14 +176,21 @@ namespace Orleans.EntityFrameworkCore
                         $"grainId: {entry.GrainRef.ToKeyString()} " +
                         $"reminderName: {entry.ReminderName}"
                     );
-
-                _db.Remove(row);
             }
 
-            row = OrleansEFMapper.Map(entry);
-            row.ETag = Guid.NewGuid().ToString();
+            var serviceId = _clusterOptions
+                .Value
+                .ServiceId;
 
-            _db.Reminders.Add(row);
+            row = OrleansEFMapper
+                .Map(entry, row, serviceId: serviceId);
+
+            row.ETag = Guid
+                .NewGuid()
+                .ToString();
+
+            if (nullRow)
+                _db.Reminders.Add(row);
 
             await _db.SaveChangesAsync();
 
