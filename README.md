@@ -25,9 +25,29 @@ Install from https://www.nuget.org/packages/Orleans.EntityFrameworkCore/
 
 Theoretically all entity framework core database providers listed [here](https://docs.microsoft.com/en-us/ef/core/providers/) should work.
 
-The following entity framework core database providers have reported to work without issue
+This project has explicitly tests the following providers and major database versions:
 
-* [Npgsql](http://www.npgsql.org/efcore/index.html)
+* `Microsoft.EntityFrameworkCore.InMemory`
+* `Microsoft.EntityFrameworkCore.Sqlite`
+* `Microsoft.EntityFrameworkCore.SqlServer`
+    * SqlServer 2017 CU12
+* `MySql.Data.EntityFrameworkCore`
+    * MariaDB v05.5.63
+    * MariaDB v10.4.2
+    * Mysql v5.7.25
+    * Mysql v8.0.15
+* `Npgsql.EntityFrameworkCore.PostgreSQL`
+    * CockroachDB v2.1.4
+    * Postgres v9.6.11
+    * Postgres v10.6.0
+    * Postgres v11.1.0
+* `Pomelo.EntityFrameworkCore.MySql`
+    * MariaDB v05.5.63
+    * MariaDB v10.4.2
+    * Mysql v5.7.25
+    * Mysql v8.0.15
+
+See the `src/Orleans.EntityFrameworkCore.Tests` project for more details. Database versions are based on latest available docker images from Docker Hub and go back 3 major versions when availble.
 
 If you have used `Orleans.EntityFrameworkCore` successfully with a provider not listed here, please open an issue and report your experience!
 
