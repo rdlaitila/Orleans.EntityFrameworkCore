@@ -1,3 +1,4 @@
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -10,13 +11,19 @@ namespace Orleans.EntityFrameworkCore
     public class OrleansEFStorage : OrleansEFEntity
     {
         /// <summary>
+        /// Row Id
+        /// </summary>
+        [Column("id"), Required]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        public Guid Id { get; set; }
+
+        /// <summary>
         /// Gets or sets the primary key.
         /// </summary>
         /// <value>
         /// The primary key.
         /// </value>
-        [Key]
-        [Column("primary_key")]
+        [Column("primary_key"), Required]
         public string PrimaryKey { get; set; }
 
         /// <summary>
@@ -25,7 +32,7 @@ namespace Orleans.EntityFrameworkCore
         /// <value>
         /// The type.
         /// </value>
-        [Column("type")]
+        [Column("type"), Required]
         public string Type { get; set; }
 
         /// <summary>
@@ -34,9 +41,9 @@ namespace Orleans.EntityFrameworkCore
         /// <value>
         /// The binary data.
         /// </value>
-        [Column("binary_data")]
+        [Column("data")]
         [MaxLength]
-        public byte[] BinaryData { get; set; }
+        public string Data { get; set; }
 
         /// <summary>
         /// Gets or sets the e tag.

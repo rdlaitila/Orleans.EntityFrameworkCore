@@ -8,6 +8,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Orleans.EntityFrameworkCore
 {
@@ -17,11 +18,6 @@ namespace Orleans.EntityFrameworkCore
     /// </summary>
     public class OrleansEFReminderTable : IReminderTable
     {
-        /// <summary>
-        /// The database
-        /// </summary>
-        private readonly OrleansEFContext _db;
-
         /// <summary>
         /// The logger
         /// </summary>
@@ -43,12 +39,9 @@ namespace Orleans.EntityFrameworkCore
         private readonly IGrainReferenceConverter _grainReferenceConverter;
 
         /// <summary>
-        /// Orleans appears to attempt access to IReminderTable in seperate threads
-        /// which breaks access requirements of EF contexts thus we must
-        /// lock when access to the context is attempted
+        /// Needed to get instances of OrleansEFContext
         /// </summary>
-        /// <returns></returns>
-        private static SemaphoreSlim _lock = new SemaphoreSlim(1, 1);
+        private readonly IServiceProvider _services;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="OrleansEFReminderTable"/> class.
@@ -56,6 +49,9 @@ namespace Orleans.EntityFrameworkCore
         /// <param name="db">The database.</param>
         /// <param name="clusterOptions">The cluster options.</param>
         /// <param name="grainFactory">The grain factory.</param>
+        /// <param name="logger"></param>
+        /// <param name="grainReferenceConverter"></param>
+        /// <param name="services"></param>
         /// <exception cref="ArgumentNullException">
         /// db
         /// or
@@ -68,7 +64,7 @@ namespace Orleans.EntityFrameworkCore
             IGrainFactory grainFactory,
             ILogger<OrleansEFReminderTable> logger,
             IGrainReferenceConverter grainReferenceConverter,
-            OrleansEFContext db
+            IServiceProvider services
         )
         {
             _clusterOptions = clusterOptions?.Value ??
@@ -83,8 +79,8 @@ namespace Orleans.EntityFrameworkCore
             _grainReferenceConverter = grainReferenceConverter ??
                 throw new ArgumentNullException(nameof(grainReferenceConverter));
 
-            _db = db ??
-                throw new ArgumentNullException(nameof(db));
+            _services = services ??
+                throw new ArgumentNullException(nameof(services));
         }
 
         /// <summary>
@@ -161,10 +157,15 @@ namespace Orleans.EntityFrameworkCore
                 var iBegin = (int)begin;
                 var iEnd = (int)end;
 
-                using (await _lock.DisposableWaitAsync())
+                using (var scope = _services.CreateScope())
                 {
-                    var rows = await _db
+                    var db = scope
+                        .ServiceProvider
+                        .GetService<OrleansEFContext>();
+
+                    var rows = await db
                         .Reminders
+                        .AsNoTracking()
                         .Where(a =>
                             a.ServiceId == _clusterOptions.ServiceId &&
                             a.GrainHash >= iBegin &&

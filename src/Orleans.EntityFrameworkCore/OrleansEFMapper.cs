@@ -115,6 +115,7 @@ namespace Orleans.EntityFrameworkCore
         /// <summary>
         /// Maps the specified source.
         /// </summary>
+        /// <param name="converter"></param>
         /// <param name="src">The source.</param>
         /// <param name="dst">The DST.</param>
         /// <returns></returns>
@@ -162,6 +163,7 @@ namespace Orleans.EntityFrameworkCore
         /// </summary>
         /// <param name="src">The source.</param>
         /// <param name="dst">The DST.</param>
+        /// <param name="serviceId"></param>
         /// <returns></returns>
         internal static OrleansEFReminder Map(
             ReminderEntry src,
@@ -174,7 +176,7 @@ namespace Orleans.EntityFrameworkCore
             dst.GrainId = src.GrainRef.ToKeyString();
             dst.ETag = src.ETag;
             dst.GrainHash = (int)src.GrainRef.GetUniformHashCode();
-            dst.Period = src.Period.Milliseconds;
+            dst.Period = src.Period.TotalMilliseconds;
             dst.StartTime = src.StartAt;
             dst.ReminderName = src.ReminderName;
             dst.ServiceId = serviceId;

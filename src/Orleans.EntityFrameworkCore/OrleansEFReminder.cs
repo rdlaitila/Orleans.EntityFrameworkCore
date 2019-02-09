@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Orleans.EntityFrameworkCore
@@ -9,6 +10,13 @@ namespace Orleans.EntityFrameworkCore
     [Table("orleans_ef_reminder")]
     public class OrleansEFReminder : OrleansEFEntity
     {
+        /// <summary>
+        /// Row Id
+        /// </summary>
+        [Column("id"), Required]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        public Guid Id { get; set; }
+
         /// <summary>
         /// Gets or sets the service identifier.
         /// </summary>
@@ -52,7 +60,7 @@ namespace Orleans.EntityFrameworkCore
         /// The period.
         /// </value>
         [Column("period")]
-        public int Period { get; set; }
+        public double Period { get; set; }
 
         /// <summary>
         /// Gets or sets the grain hash.

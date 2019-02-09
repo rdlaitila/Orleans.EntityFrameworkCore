@@ -1,12 +1,11 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Orleans.Configuration;
-using Orleans.EntityFrameworkCore.Extensions;
 using Orleans.Runtime;
 using System;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace Orleans.EntityFrameworkCore
@@ -17,11 +16,6 @@ namespace Orleans.EntityFrameworkCore
     /// </summary>
     public class OrleansEFMembershipTable : IMembershipTable
     {
-        /// <summary>
-        /// The OrleansEFContext
-        /// </summary>
-        private readonly OrleansEFContext _db;
-
         /// <summary>
         /// Cluster options as configured during ISiloHostBuilder setup
         /// </summary>
@@ -34,12 +28,9 @@ namespace Orleans.EntityFrameworkCore
         private readonly ILogger<OrleansEFMembershipTable> _logger;
 
         /// <summary>
-        /// Orleans appears to attempt access to IMembershpTable in seperate threads
-        /// which breaks access requirements of EF contexts thus we must
-        /// lock when access to the context is attempted
+        /// Needed to get instances of OrleansEFContext
         /// </summary>
-        /// <returns></returns>
-        private static SemaphoreSlim _lock = new SemaphoreSlim(1, 1);
+        private readonly IServiceProvider _services;
 
         /// <summary>
         /// Constructor fed from DI
@@ -48,19 +39,19 @@ namespace Orleans.EntityFrameworkCore
         /// <param name="clusterOptions"></param>
         /// <param name="logger"></param>
         public OrleansEFMembershipTable(
-            OrleansEFContext db,
             IOptions<ClusterOptions> clusterOptions,
-            ILogger<OrleansEFMembershipTable> logger
+            ILogger<OrleansEFMembershipTable> logger,
+            IServiceProvider services
         )
         {
-            _db = db ??
-                throw new ArgumentNullException(nameof(db));
-
             _clusterOptions = clusterOptions?.Value ??
                 throw new ArgumentNullException(nameof(clusterOptions));
 
             _logger = logger ??
                 throw new ArgumentNullException(nameof(logger));
+
+            _services = services ??
+                        throw new ArgumentNullException(nameof(services));
         }
 
         /// <summary>
@@ -118,18 +109,23 @@ namespace Orleans.EntityFrameworkCore
                 if (tableVersion == null)
                     throw new ArgumentNullException(nameof(tableVersion));
 
-                using (await _lock.DisposableWaitAsync())
+                using (var scope = _services.CreateScope())
                 {
+                    var db = scope
+                        .ServiceProvider
+                        .GetService<OrleansEFContext>();
+
                     var newRow = OrleansEFMapper.Map(entry);
 
+                    newRow.Id = Guid.NewGuid();
                     newRow.DeploymentId = _clusterOptions.ClusterId;
                     newRow.Generation = entry.SiloAddress.Generation;
                     newRow.Address = entry.SiloAddress.Endpoint.Address.ToString();
                     newRow.Port = entry.SiloAddress.Endpoint.Port;
 
-                    _db.Memberships.Add(newRow);
+                    db.Memberships.Add(newRow);
 
-                    await _db.SaveChangesAsync();
+                    await db.SaveChangesAsync();
 
                     _logger.Info(
                         0, "{0}: {1}", nameof(InsertRow),
@@ -154,10 +150,15 @@ namespace Orleans.EntityFrameworkCore
         {
             try
             {
-                using (await _lock.DisposableWaitAsync())
+                using (var scope = _services.CreateScope())
                 {
-                    var rows = await _db
+                    var db = scope
+                        .ServiceProvider
+                        .GetService<OrleansEFContext>();
+
+                    var rows = await db
                         .Memberships
+                        .AsNoTracking()
                         .Where(a =>
                             a.DeploymentId == _clusterOptions.ClusterId
                         )
@@ -182,13 +183,18 @@ namespace Orleans.EntityFrameworkCore
         {
             try
             {
-                using (await _lock.DisposableWaitAsync())
-                {
-                    if (key == null)
-                        throw new ArgumentNullException(nameof(key));
+                if (key == null)
+                    throw new ArgumentNullException(nameof(key));
 
-                    var rows = await _db
+                using (var scope = _services.CreateScope())
+                {
+                    var db = scope
+                        .ServiceProvider
+                        .GetService<OrleansEFContext>();
+
+                    var rows = await db
                         .Memberships
+                        .AsNoTracking()
                         .Where(a =>
                             a.DeploymentId == _clusterOptions.ClusterId &&
                             a.Address == key.Endpoint.Address.ToString() &&
@@ -218,16 +224,22 @@ namespace Orleans.EntityFrameworkCore
         /// </summary>
         /// <param name="entry"></param>
         /// <returns></returns>
-        public async Task UpdateIAmAlive(MembershipEntry entry)
+        public async Task UpdateIAmAlive(
+            MembershipEntry entry
+        )
         {
             try
             {
-                using (await _lock.DisposableWaitAsync())
-                {
-                    if (entry == null)
-                        throw new ArgumentNullException(nameof(entry));
+                if (entry == null)
+                    throw new ArgumentNullException(nameof(entry));
 
-                    var row = await _db
+                using (var scope = _services.CreateScope())
+                {
+                    var db = scope
+                        .ServiceProvider
+                        .GetService<OrleansEFContext>();
+
+                    var row = await db
                         .Memberships
                         .FirstOrDefaultAsync(a =>
                             a.DeploymentId == _clusterOptions.ClusterId &&
@@ -237,11 +249,13 @@ namespace Orleans.EntityFrameworkCore
                         );
 
                     if (row == null)
-                        throw new UpdateIAmAliveException.RowNotFound(entry.SiloAddress);
+                        throw new OrleansEFMembershipException.RowNotFound(
+                            entry.SiloAddress
+                        );
 
                     row.IAmAliveTime = entry.IAmAliveTime;
 
-                    await _db.SaveChangesAsync();
+                    await db.SaveChangesAsync();
 
                     _logger.Info(
                         0, "{0}: {1}", nameof(UpdateIAmAlive),
@@ -257,45 +271,36 @@ namespace Orleans.EntityFrameworkCore
         }
 
         /// <summary>
-        /// custom exceptions for UpdateIAmAlive
-        /// </summary>
-        public abstract class UpdateIAmAliveException : Exception
-        {
-            public UpdateIAmAliveException(string message) : base(message)
-            {
-            }
-
-            public class RowNotFound : UpdateIAmAliveException
-            {
-                public RowNotFound(SiloAddress key) : base($"no rows with silo address {key.Endpoint.ToString()} found")
-                {
-                }
-            }
-        }
-
-        /// <summary>
         /// UpdateRow
         /// </summary>
         /// <param name="entry"></param>
         /// <param name="etag"></param>
         /// <param name="tableVersion"></param>
         /// <returns></returns>
-        public async Task<bool> UpdateRow(MembershipEntry entry, string etag, TableVersion tableVersion)
+        public async Task<bool> UpdateRow(
+            MembershipEntry entry,
+            string etag,
+            TableVersion tableVersion
+        )
         {
             try
             {
-                using (await _lock.DisposableWaitAsync())
+                if (entry == null)
+                    throw new ArgumentNullException(nameof(entry));
+
+                if (string.IsNullOrWhiteSpace(etag))
+                    throw new ArgumentNullException(nameof(etag));
+
+                if (tableVersion == null)
+                    throw new ArgumentNullException(nameof(tableVersion));
+
+                using (var scope = _services.CreateScope())
                 {
-                    if (entry == null)
-                        throw new ArgumentNullException(nameof(entry));
+                    var db = scope
+                        .ServiceProvider
+                        .GetService<OrleansEFContext>();
 
-                    if (string.IsNullOrWhiteSpace(etag))
-                        throw new ArgumentNullException(nameof(etag));
-
-                    if (tableVersion == null)
-                        throw new ArgumentNullException(nameof(tableVersion));
-
-                    var row = await _db
+                    var row = await db
                         .Memberships
                         .FirstOrDefaultAsync(a =>
                             a.DeploymentId == _clusterOptions.ClusterId &&
@@ -305,13 +310,13 @@ namespace Orleans.EntityFrameworkCore
                         );
 
                     if (row == null)
-                        throw new UpdateRowException.RowNotFound(
+                        throw new OrleansEFMembershipException.RowNotFound(
                             entry.SiloAddress
                         );
 
                     OrleansEFMapper.Map(entry, row);
 
-                    await _db.SaveChangesAsync();
+                    await db.SaveChangesAsync();
 
                     _logger.Info(
                         0, "{0}: {1}", nameof(UpdateRow),
@@ -325,23 +330,6 @@ namespace Orleans.EntityFrameworkCore
             {
                 _logger.Error(0, nameof(UpdateRow), e);
                 throw;
-            }
-        }
-
-        /// <summary>
-        /// custom exceptions for UpdateRow
-        /// </summary>
-        public abstract class UpdateRowException : Exception
-        {
-            public UpdateRowException(string message) : base(message)
-            {
-            }
-
-            public class RowNotFound : UpdateRowException
-            {
-                public RowNotFound(SiloAddress key) : base($"no rows with silo address {key.Endpoint.ToString()} found")
-                {
-                }
             }
         }
     }

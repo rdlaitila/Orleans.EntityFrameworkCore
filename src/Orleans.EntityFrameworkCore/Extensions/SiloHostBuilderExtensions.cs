@@ -75,7 +75,7 @@ namespace Orleans.EntityFrameworkCore.Extensions
                 return;
 
             builder.ConfigureApplicationParts(parts =>
-                parts.AddApplicationPart(typeof(OrleansEFContext).Assembly)
+                parts.AddApplicationPart(typeof(IOrleansEFStorageGrain).Assembly).WithReferences()
             );
 
             partsConfigured = true;

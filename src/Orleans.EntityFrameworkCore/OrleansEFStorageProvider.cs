@@ -81,9 +81,24 @@ namespace Orleans.EntityFrameworkCore
         {
             try
             {
-                await _grainFactory
+                if (string.IsNullOrWhiteSpace(grainType))
+                    throw new ArgumentNullException(nameof(grainType));
+
+                grainReference = grainReference ??
+                    throw new ArgumentNullException(nameof(grainReference));
+
+                grainState = grainState ??
+                    throw new ArgumentNullException(nameof(grainState));
+
+                var state = await _grainFactory
                    .GetGrain<IOrleansEFStorageGrain>(grainReference.ToKeyString())
                    .ClearStateAsync(grainType, grainReference, grainState);
+
+                grainState.State =
+                    state.State ?? grainState.State;
+
+                grainState.ETag =
+                    state.ETag;
             }
             catch (Exception e)
             {
@@ -133,12 +148,27 @@ namespace Orleans.EntityFrameworkCore
         {
             try
             {
+                if (string.IsNullOrWhiteSpace(grainType))
+                    throw new ArgumentNullException(nameof(grainType));
+
+                grainReference = grainReference ??
+                    throw new ArgumentNullException(nameof(grainReference));
+
+                grainState = grainState ??
+                    throw new ArgumentNullException(nameof(grainState));
+
+                var grainKey = grainReference
+                    .ToKeyString();
+
                 var state = await _grainFactory
                    .GetGrain<IOrleansEFStorageGrain>(grainReference.ToKeyString())
                    .ReadStateAsync(grainType, grainReference, grainState);
 
-                grainState.State = state.State;
-                grainState.ETag = state.ETag;
+                grainState.State =
+                    state.State ?? grainState.State;
+
+                grainState.ETag =
+                    state.ETag;
             }
             catch (Exception e)
             {
@@ -162,9 +192,24 @@ namespace Orleans.EntityFrameworkCore
         {
             try
             {
-                await _grainFactory
+                if (string.IsNullOrWhiteSpace(grainType))
+                    throw new ArgumentNullException(nameof(grainType));
+
+                grainReference = grainReference ??
+                    throw new ArgumentNullException(nameof(grainReference));
+
+                grainState = grainState ??
+                    throw new ArgumentNullException(nameof(grainState));
+
+                var state = await _grainFactory
                     .GetGrain<IOrleansEFStorageGrain>(grainReference.ToKeyString())
                     .WriteStateAsync(grainType, grainReference, grainState);
+
+                grainState.State =
+                    state.State ?? grainState.State;
+
+                grainState.ETag =
+                    state.ETag;
 
                 return;
             }

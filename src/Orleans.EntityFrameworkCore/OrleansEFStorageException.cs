@@ -18,6 +18,7 @@ namespace Orleans.EntityFrameworkCore
         /// <summary>
         /// </summary>
         /// <seealso cref="Orleans.EntityFrameworkCore.OrleansEFStorageException" />
+        [Serializable]
         public class EtagMismatch : OrleansEFStorageException
         {
             /// <summary>

@@ -14,6 +14,7 @@ namespace Orleans.EntityFrameworkCore.Migrations
                 name: "orleans_ef_membership",
                 columns: table => new
                 {
+                    id = table.Column<Guid>(nullable: false),
                     deployment_id = table.Column<string>(nullable: false),
                     address = table.Column<string>(nullable: false),
                     port = table.Column<int>(nullable: false),
@@ -34,10 +35,7 @@ namespace Orleans.EntityFrameworkCore.Migrations
                 {
                     table.PrimaryKey("PK_orleans_ef_membership", a => new
                     {
-                        a.deployment_id,
-                        a.address,
-                        a.port,
-                        a.generation
+                        a.id
                     });
                 }
             );
@@ -45,9 +43,6 @@ namespace Orleans.EntityFrameworkCore.Migrations
 
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "orleans_ef_membership"
-            );
         }
     }
 }

@@ -14,9 +14,10 @@ namespace Orleans.EntityFrameworkCore.Migrations
                 name: "orleans_ef_storage",
                 columns: table => new
                 {
+                    id = table.Column<Guid>(nullable: false),
                     primary_key = table.Column<string>(nullable: false),
                     type = table.Column<string>(nullable: false),
-                    binary_data = table.Column<byte[]>(nullable: false),
+                    data = table.Column<string>(nullable: false),
                     etag = table.Column<string>(nullable: false),
                     created_at = table.Column<DateTime>(nullable: false),
                     updated_at = table.Column<DateTime>(nullable: false),
@@ -25,7 +26,7 @@ namespace Orleans.EntityFrameworkCore.Migrations
                 {
                     table.PrimaryKey("PK_orleans_ef_storage", a => new
                     {
-                        a.primary_key,
+                        a.id,
                     });
                 }
             );
@@ -33,9 +34,6 @@ namespace Orleans.EntityFrameworkCore.Migrations
 
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "orleans_ef_storage"
-            );
         }
     }
 }

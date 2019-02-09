@@ -10,6 +10,16 @@ namespace Orleans.EntityFrameworkCore
     public class OrleansEFMembership : OrleansEFEntity
     {
         /// <summary>
+        /// Gets or sets the identifier.
+        /// </summary>
+        /// <value>
+        /// The identifier.
+        /// </value>
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        [Column("id")]
+        public Guid Id { get; set; }
+
+        /// <summary>
         /// Gets or sets the deployment identifier.
         /// </summary>
         /// <value>

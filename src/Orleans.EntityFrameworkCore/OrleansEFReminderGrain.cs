@@ -57,7 +57,6 @@ namespace Orleans.EntityFrameworkCore
         );
     }
 
-    [StatelessWorker(1)]
     internal class OrleansEFReminderGrain : Grain, IOrleansEFReminderGrain
     {
         private readonly OrleansEFContext _db;
@@ -168,15 +167,23 @@ namespace Orleans.EntityFrameworkCore
             var nullRow =
                 row == null;
 
-            if (!nullRow)
+            if (nullRow)
             {
-                if (entry.ETag != row.ETag)
-                    throw new OrleansEFReminderException.EtagMismatch(
-                        $"etag mismatch. " +
-                        $"grainId: {entry.GrainRef.ToKeyString()} " +
-                        $"reminderName: {entry.ReminderName}"
-                    );
+                row = new OrleansEFReminder
+                {
+                    Id = Guid.NewGuid(),
+                    ETag = entry.ETag,
+                };
+
+                _db.Reminders.Add(row);
             }
+
+            if (entry.ETag != row.ETag)
+                throw new OrleansEFReminderException.EtagMismatch(
+                    $"etag mismatch. " +
+                    $"grainId: {entry.GrainRef.ToKeyString()} " +
+                    $"reminderName: {entry.ReminderName}"
+                );
 
             var serviceId = _clusterOptions
                 .Value
@@ -188,9 +195,6 @@ namespace Orleans.EntityFrameworkCore
             row.ETag = Guid
                 .NewGuid()
                 .ToString();
-
-            if (nullRow)
-                _db.Reminders.Add(row);
 
             await _db.SaveChangesAsync();
 

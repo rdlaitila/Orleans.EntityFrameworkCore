@@ -65,7 +65,7 @@ namespace Orleans.EntityFrameworkCore
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<OrleansEFMembership>()
-                .HasKey(a => new { a.DeploymentId, a.Address, a.Port, a.Generation });
+                .HasKey(a => new { a.Id, a.DeploymentId, a.Address, a.Port, a.Generation });
 
             modelBuilder.Entity<OrleansEFMembershipVersion>()
                 .HasKey(a => a.DeploymentId);
@@ -119,18 +119,19 @@ namespace Orleans.EntityFrameworkCore
                 .Entries()
                 .Where(x =>
                     x.Entity is OrleansEFEntity &&
-                    (x.State == EntityState.Added ||
-                        x.State == EntityState.Modified)
+                    (x.State == EntityState.Added || x.State == EntityState.Modified)
                 );
 
             foreach (var entity in entities)
             {
                 var now = DateTime.UtcNow;
 
-                if (entity.State == EntityState.Added)
-                    ((OrleansEFEntity)entity.Entity).CreatedAt = now;
+                var orleansEntity = entity.Entity as OrleansEFEntity;
 
-                ((OrleansEFEntity)entity.Entity).UpdatedAt = now;
+                if (entity.State == EntityState.Added)
+                    orleansEntity.CreatedAt = now;
+
+                orleansEntity.UpdatedAt = now;
             }
         }
     }

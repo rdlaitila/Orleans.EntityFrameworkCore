@@ -1,8 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Orleans.Concurrency;
+using Microsoft.Extensions.Logging;
 using Orleans.Runtime;
 using Orleans.Serialization;
 using System;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace Orleans.EntityFrameworkCore
@@ -19,7 +20,7 @@ namespace Orleans.EntityFrameworkCore
         /// <param name="grainReference">The grain reference.</param>
         /// <param name="grainState">State of the grain.</param>
         /// <returns></returns>
-        Task ClearStateAsync(
+        Task<IGrainState> ClearStateAsync(
             string grainType,
             GrainReference grainReference,
             IGrainState grainState
@@ -45,50 +46,81 @@ namespace Orleans.EntityFrameworkCore
         /// <param name="grainReference">The grain reference.</param>
         /// <param name="grainState">State of the grain.</param>
         /// <returns></returns>
-        Task WriteStateAsync(
+        Task<IGrainState> WriteStateAsync(
             string grainType,
             GrainReference grainReference,
             IGrainState grainState
         );
     }
 
-    [StatelessWorker(1)]
     internal class OrleansEFStorageGrain : Grain, IOrleansEFStorageGrain
     {
+        private readonly ILogger<OrleansEFStorageGrain> _logger;
+
         private readonly OrleansEFContext _db;
 
         private readonly SerializationManager _serializationManager;
 
         public OrleansEFStorageGrain(
+            ILogger<OrleansEFStorageGrain> logger,
             OrleansEFContext db,
             SerializationManager serializationManager
         )
         {
-            _db = db;
-            _serializationManager = serializationManager;
+            _db = db ??
+                throw new ArgumentNullException(nameof(db));
+
+            _serializationManager = serializationManager ??
+                throw new ArgumentNullException(nameof(serializationManager));
+
+            _logger = logger ??
+                throw new ArgumentNullException(nameof(logger));
         }
 
-        public async Task ClearStateAsync(
+        public async Task<IGrainState> ClearStateAsync(
             string grainType,
             GrainReference grainReference,
             IGrainState grainState
         )
         {
-            var dbGrain = await _db
-                .Storage
-                .FirstOrDefaultAsync(a =>
-                    a.Type == grainType &&
-                    a.PrimaryKey == grainReference.ToKeyString()
-                );
+            try
+            {
+                if (string.IsNullOrWhiteSpace(grainType))
+                    throw new ArgumentNullException(nameof(grainType));
 
-            if (dbGrain == null)
-                return;
+                grainReference = grainReference ??
+                    throw new ArgumentNullException(nameof(grainReference));
 
-            _db.Storage.Remove(dbGrain);
+                grainState = grainState ??
+                    throw new ArgumentNullException(nameof(grainState));
 
-            await _db.SaveChangesAsync();
+                grainState.ETag =
+                    null;
 
-            grainState.ETag = null;
+                grainState.State =
+                    null;
+
+                var dbGrain = await _db
+                    .Storage
+                    .FirstOrDefaultAsync(a =>
+                        a.Type == grainType &&
+                        a.PrimaryKey == grainReference.ToKeyString()
+                    );
+
+                if (dbGrain == null)
+                    return grainState;
+
+                _db.Storage.Remove(dbGrain);
+
+                await _db.SaveChangesAsync();
+
+                return grainState;
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(0, e, nameof(ClearStateAsync));
+                throw;
+            }
         }
 
         public async Task<IGrainState> ReadStateAsync(
@@ -97,65 +129,120 @@ namespace Orleans.EntityFrameworkCore
             IGrainState grainState
         )
         {
-            var dbGrain = await _db
-                .Storage
-                .FirstOrDefaultAsync(a =>
-                    a.Type == grainType &&
-                    a.PrimaryKey == grainReference.ToKeyString()
-                );
+            try
+            {
+                if (string.IsNullOrWhiteSpace(grainType))
+                    throw new ArgumentNullException(nameof(grainType));
 
-            if (dbGrain == null)
+                grainReference = grainReference ??
+                    throw new ArgumentNullException(nameof(grainReference));
+
+                grainState = grainState ??
+                    throw new ArgumentNullException(nameof(grainState));
+
+                var dbGrain = await _db
+                    .Storage
+                    .FirstOrDefaultAsync(a =>
+                        a.Type == grainType &&
+                        a.PrimaryKey == grainReference.ToKeyString()
+                    );
+
+                if (dbGrain == null)
+                {
+                    grainState.ETag = null;
+                    grainState.State = null;
+
+                    return grainState;
+                }
+
+                grainState.ETag =
+                    dbGrain.ETag;
+
+                var dbGrainData = Convert
+                    .FromBase64String(dbGrain.Data);
+
+                grainState.State = _serializationManager
+                    .DeserializeFromByteArray<object>(dbGrainData);
+
                 return grainState;
-
-            grainState.ETag = dbGrain.ETag;
-            grainState.State = _serializationManager
-                .DeserializeFromByteArray<object>(dbGrain.BinaryData);
-
-            return grainState;
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(0, e, nameof(ReadStateAsync));
+                throw;
+            }
         }
 
-        public async Task WriteStateAsync(
+        public async Task<IGrainState> WriteStateAsync(
             string grainType,
             GrainReference grainReference,
             IGrainState grainState
         )
         {
-            var dbGrain = await _db
-                .Storage
-                .FirstOrDefaultAsync(a =>
-                    a.Type == grainType &&
-                    a.PrimaryKey == grainReference.ToKeyString()
-                );
-
-            if (dbGrain == null)
+            try
             {
-                dbGrain = new OrleansEFStorage
+                if (string.IsNullOrWhiteSpace(grainType))
+                    throw new ArgumentNullException(nameof(grainType));
+
+                grainReference = grainReference ??
+                    throw new ArgumentNullException(nameof(grainReference));
+
+                grainState = grainState ??
+                    throw new ArgumentNullException(nameof(grainState));
+
+                var dbGrain = await _db
+                    .Storage
+                    .FirstOrDefaultAsync(a =>
+                        a.Type == grainType &&
+                        a.PrimaryKey == grainReference.ToKeyString()
+                    );
+
+                if (dbGrain == null)
                 {
-                    Type = grainType,
-                    PrimaryKey = grainReference.ToKeyString(),
-                };
+                    dbGrain = new OrleansEFStorage
+                    {
+                        Id = Guid.NewGuid(),
+                        Type = grainType,
+                        PrimaryKey = grainReference.ToKeyString(),
+                        ETag = grainState.ETag,
+                    };
 
-                _db.Add(dbGrain);
+                    _db.Add(dbGrain);
+                }
+
+                var etagMismatch =
+                    dbGrain.ETag != grainState.ETag;
+
+                if (etagMismatch)
+                    throw new OrleansEFStorageException.EtagMismatch(
+                        $"etag mismatch. " +
+                        $"grainType: {grainType} " +
+                        $"grainId: {grainReference.ToKeyString()} " +
+                        $"storedEtag: {dbGrain.ETag} " +
+                        $"suppliedEtag: {grainState.ETag}"
+                    );
+
+                dbGrain.ETag =
+                    Guid.NewGuid().ToString();
+
+                var serializedData = _serializationManager
+                    .SerializeToByteArray(grainState.State);
+
+                dbGrain.Data = Convert
+                    .ToBase64String(serializedData);
+
+                await _db.SaveChangesAsync();
+
+                grainState.ETag =
+                    dbGrain.ETag;
+
+                return grainState;
             }
-
-            var etagMismatch =
-                !string.IsNullOrWhiteSpace(dbGrain.ETag) &&
-                dbGrain.ETag != grainState.ETag;
-
-            if (etagMismatch)
-                throw new OrleansEFStorageException.EtagMismatch(
-                    $"etag mismatch. " +
-                    $"grainType: {grainType} " +
-                    $"grainId: {grainReference.ToKeyString()} " +
-                    $"storedEtag: {dbGrain.ETag} " +
-                    $"suppliedEtag: {grainState.ETag}"
-                );
-
-            dbGrain.ETag = Guid.NewGuid().ToString();
-            dbGrain.BinaryData = _serializationManager
-                .SerializeToByteArray(grainState.State);
-
-            await _db.SaveChangesAsync();
+            catch (Exception e)
+            {
+                _logger.LogError(0, e, nameof(WriteStateAsync));
+                throw;
+            }
         }
     }
 }

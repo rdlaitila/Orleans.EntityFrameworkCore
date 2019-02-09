@@ -14,11 +14,12 @@ namespace Orleans.EntityFrameworkCore.Migrations
                 name: "orleans_ef_reminder",
                 columns: table => new
                 {
+                    id = table.Column<Guid>(nullable: false),
                     service_id = table.Column<string>(nullable: false),
                     grain_id = table.Column<string>(nullable: false),
-                    reminder_name = table.Column<byte[]>(nullable: false),
+                    reminder_name = table.Column<string>(nullable: false),
                     start_time = table.Column<DateTime>(nullable: false),
-                    period = table.Column<int>(nullable: false),
+                    period = table.Column<double>(nullable: false),
                     grain_hash = table.Column<int>(nullable: false),
                     etag = table.Column<string>(nullable: false),
                     created_at = table.Column<DateTime>(nullable: false),
@@ -28,9 +29,7 @@ namespace Orleans.EntityFrameworkCore.Migrations
                 {
                     table.PrimaryKey("PK_orleans_ef_reminder", a => new
                     {
-                        a.service_id,
-                        a.grain_id,
-                        a.reminder_name,
+                        a.id,
                     });
                 }
             );
@@ -38,9 +37,6 @@ namespace Orleans.EntityFrameworkCore.Migrations
 
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "orleans_ef_reminder"
-            );
         }
     }
 }
