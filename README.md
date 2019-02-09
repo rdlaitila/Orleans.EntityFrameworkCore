@@ -49,7 +49,7 @@ This project explicitly tests the following providers and major database version
 
 See the `src/Orleans.EntityFrameworkCore.Tests` project for more details. Database versions are based on latest available docker images from Docker Hub and go back 3 major versions when availble.
 
-If you have used `Orleans.EntityFrameworkCore` successfully with a provider not listed here, please open an issue and report your experience!
+If you have used `Orleans.EntityFrameworkCore` successfully with a provider or database not listed here, please open an issue and report your experience!
 
 # Configuration Sample
 
