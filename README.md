@@ -25,7 +25,7 @@ Install from https://www.nuget.org/packages/Orleans.EntityFrameworkCore/
 
 Theoretically all entity framework core database providers listed [here](https://docs.microsoft.com/en-us/ef/core/providers/) should work.
 
-This project has explicitly tests the following providers and major database versions:
+This project explicitly tests the following providers and major database versions:
 
 * `Microsoft.EntityFrameworkCore.InMemory`
 * `Microsoft.EntityFrameworkCore.Sqlite`
