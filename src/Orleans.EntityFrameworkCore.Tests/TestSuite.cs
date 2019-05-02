@@ -29,8 +29,7 @@ namespace Orleans.EntityFrameworkCore.Tests
                 .SiloClient
                 .GetGrain<IStorageGrain>(Guid.Empty);
 
-            var storageState = await storageGrain
-                .GetState();
+            var storageState = await storageGrain.GetState();
 
             Assert.AreEqual(0, storageState.Counter);
 
@@ -40,8 +39,7 @@ namespace Orleans.EntityFrameworkCore.Tests
                     .IncrementCounter();
             }
 
-            storageState = await storageGrain
-                .GetState();
+            storageState = await storageGrain.GetState();
 
             Assert.AreEqual(100, storageState.Counter);
 
@@ -49,18 +47,15 @@ namespace Orleans.EntityFrameworkCore.Tests
                 .SiloClient
                 .GetGrain<IReminderGrain>(Guid.Empty);
 
-            var reminderState = await reminderGrain
-                .GetState();
+            var reminderState = await reminderGrain.GetState();
 
             Assert.AreEqual(0, reminderState.NumReminderCalled);
 
-            await reminderGrain
-                .SetReminder();
+            await reminderGrain.SetReminder();
 
             await Task.Delay(TimeSpan.FromSeconds(10));
 
-            reminderState = await reminderGrain
-                .GetState();
+            reminderState = await reminderGrain.GetState();
 
             Assert.AreEqual(1, reminderState.NumReminderCalled);
 
@@ -74,8 +69,7 @@ namespace Orleans.EntityFrameworkCore.Tests
                 .SiloClient
                 .GetGrain<IReminderGrain>(Guid.Empty);
 
-            reminderState = await reminderGrain
-                .GetState();
+            reminderState = await reminderGrain.GetState();
 
             Assert.AreEqual(2, reminderState.NumReminderCalled);
 

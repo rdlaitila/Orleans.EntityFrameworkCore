@@ -6,7 +6,7 @@
     <LangVersion>7.1</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <PackageId>Orleans.EntityFrameworkCore</PackageId>
-    <Version>0.1.7</Version>
+    <Version>0.1.8</Version>
     <Authors>Regan Laitila</Authors>
     <Company></Company>
     <PackageTags>MicrosoftOrleans;Orleans;EntityFrameworkCore;GrainStorage;StorageProvider</PackageTags>
@@ -18,11 +18,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="2.2.1" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="2.2.1" />
-    <PackageReference Include="Microsoft.Orleans.CodeGenerator.MSBuild" Version="2.2.3" />
-    <PackageReference Include="Microsoft.Orleans.Core" Version="2.2.0" />
-    <PackageReference Include="Microsoft.Orleans.Server" Version="2.2.3" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="2.2.4" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="2.2.4" />
+    <PackageReference Include="Microsoft.Orleans.CodeGenerator.MSBuild" Version="2.3.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Orleans.Core" Version="2.3.1" />
+    <PackageReference Include="Microsoft.Orleans.Server" Version="2.3.1" />
   </ItemGroup>
 
 </Project>

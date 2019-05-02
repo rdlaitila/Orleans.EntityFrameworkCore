@@ -51,7 +51,7 @@ namespace Orleans.EntityFrameworkCore
                 throw new ArgumentNullException(nameof(logger));
 
             _services = services ??
-                        throw new ArgumentNullException(nameof(services));
+                throw new ArgumentNullException(nameof(services));
         }
 
         /// <summary>
@@ -72,6 +72,34 @@ namespace Orleans.EntityFrameworkCore
             {
                 _logger.Error(0, nameof(DeleteMembershipTableEntries), e);
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// delete old silo entries
+        /// </summary>
+        /// <param name="beforeDate"></param>
+        /// <returns></returns>
+        public async Task CleanupDefunctSiloEntries(DateTimeOffset beforeDate)
+        {
+            using (var scope = _services.CreateScope())
+            {
+                var db = scope
+                    .ServiceProvider
+                    .GetService<OrleansEFContext>();
+
+                var deadSilos = await db
+                    .Memberships
+                    .Where(a =>
+                        a.DeploymentId == _clusterOptions.ClusterId &&
+                        a.Status == 6 &&
+                        a.UpdatedAt < beforeDate
+                    )
+                    .ToListAsync();
+
+                db.Memberships.RemoveRange(deadSilos);
+
+                await db.SaveChangesAsync();
             }
         }
 
@@ -142,6 +170,7 @@ namespace Orleans.EntityFrameworkCore
             }
         }
 
+        /// <inheritdoc />
         /// <summary>
         /// ReadAll
         /// </summary>

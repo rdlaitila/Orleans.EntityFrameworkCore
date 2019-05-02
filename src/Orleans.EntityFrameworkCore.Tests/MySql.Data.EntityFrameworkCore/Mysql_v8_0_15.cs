@@ -34,7 +34,7 @@ namespace Orleans.EntityFrameworkCore.Tests.MySql.Data.EntityFrameworkCore
                 await TestUtil.WaitForDockerLogOutput(
                     containerName,
                     "/usr/sbin/mysqld: ready for connections. Version: '8.0.15'  socket: '/var/run/mysqld/mysqld.sock'  port: 3306  MySQL Community Server - GPL.",
-                    DateTime.UtcNow.AddMinutes(2)
+                    DateTime.UtcNow.AddMinutes(3)
                 );
 
                 await TestUtil.WaitForTcpSocket(
