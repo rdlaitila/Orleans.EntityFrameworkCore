@@ -6,7 +6,9 @@ using Orleans.Configuration;
 using Orleans.Runtime;
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
+using Orleans.EntityFrameworkCore.Extensions;
 
 namespace Orleans.EntityFrameworkCore
 {
@@ -32,6 +34,10 @@ namespace Orleans.EntityFrameworkCore
         /// </summary>
         private readonly IServiceProvider _services;
 
+        private readonly OrleansEFContext _orleansEfContext;
+
+        private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
+
         /// <summary>
         /// Constructor fed from DI
         /// </summary>
@@ -41,7 +47,8 @@ namespace Orleans.EntityFrameworkCore
         public OrleansEFMembershipTable(
             IOptions<ClusterOptions> clusterOptions,
             ILogger<OrleansEFMembershipTable> logger,
-            IServiceProvider services
+            IServiceProvider services,
+            OrleansEFContext orleansEfContext
         )
         {
             _clusterOptions = clusterOptions?.Value ??
@@ -52,6 +59,9 @@ namespace Orleans.EntityFrameworkCore
 
             _services = services ??
                 throw new ArgumentNullException(nameof(services));
+
+            _orleansEfContext = orleansEfContext ??
+                throw new ArgumentNullException(nameof(orleansEfContext));
         }
 
         /// <summary>
@@ -82,24 +92,23 @@ namespace Orleans.EntityFrameworkCore
         /// <returns></returns>
         public async Task CleanupDefunctSiloEntries(DateTimeOffset beforeDate)
         {
-            using (var scope = _services.CreateScope())
+            using (await _semaphore.DisposableWaitAsync())
             {
-                var db = scope
-                    .ServiceProvider
-                    .GetService<OrleansEFContext>();
-
-                var deadSilos = await db
+                var deadSilos = await _orleansEfContext
                     .Memberships
                     .Where(a =>
                         a.DeploymentId == _clusterOptions.ClusterId &&
-                        a.Status == 6 &&
-                        a.UpdatedAt < beforeDate
+                        a.IAmAliveTime < beforeDate.UtcDateTime
                     )
                     .ToListAsync();
 
-                db.Memberships.RemoveRange(deadSilos);
+                deadSilos.ForEach(a =>
+                    _logger.Info(0, $"cleaning up suspected dead silo. address={a.Address}:{a.Port} hostname={a.HostName} last_i_am_alive={a.IAmAliveTime}")
+                );
 
-                await db.SaveChangesAsync();
+                _orleansEfContext.Memberships.RemoveRange(deadSilos);
+
+                await _orleansEfContext.SaveChangesAsync();
             }
         }
 
@@ -137,12 +146,8 @@ namespace Orleans.EntityFrameworkCore
                 if (tableVersion == null)
                     throw new ArgumentNullException(nameof(tableVersion));
 
-                using (var scope = _services.CreateScope())
+                using (await _semaphore.DisposableWaitAsync())
                 {
-                    var db = scope
-                        .ServiceProvider
-                        .GetService<OrleansEFContext>();
-
                     var newRow = OrleansEFMapper.Map(entry);
 
                     newRow.Id = Guid.NewGuid();
@@ -151,9 +156,9 @@ namespace Orleans.EntityFrameworkCore
                     newRow.Address = entry.SiloAddress.Endpoint.Address.ToString();
                     newRow.Port = entry.SiloAddress.Endpoint.Port;
 
-                    db.Memberships.Add(newRow);
+                    _orleansEfContext.Memberships.Add(newRow);
 
-                    await db.SaveChangesAsync();
+                    await _orleansEfContext.SaveChangesAsync();
 
                     _logger.Info(
                         0, "{0}: {1}", nameof(InsertRow),
@@ -179,13 +184,9 @@ namespace Orleans.EntityFrameworkCore
         {
             try
             {
-                using (var scope = _services.CreateScope())
+                using (await _semaphore.DisposableWaitAsync())
                 {
-                    var db = scope
-                        .ServiceProvider
-                        .GetService<OrleansEFContext>();
-
-                    var rows = await db
+                    var rows = await _orleansEfContext
                         .Memberships
                         .AsNoTracking()
                         .Where(a =>
@@ -215,13 +216,9 @@ namespace Orleans.EntityFrameworkCore
                 if (key == null)
                     throw new ArgumentNullException(nameof(key));
 
-                using (var scope = _services.CreateScope())
+                using (await _semaphore.DisposableWaitAsync())
                 {
-                    var db = scope
-                        .ServiceProvider
-                        .GetService<OrleansEFContext>();
-
-                    var rows = await db
+                    var rows = await _orleansEfContext
                         .Memberships
                         .AsNoTracking()
                         .Where(a =>
@@ -262,13 +259,9 @@ namespace Orleans.EntityFrameworkCore
                 if (entry == null)
                     throw new ArgumentNullException(nameof(entry));
 
-                using (var scope = _services.CreateScope())
+                using (await _semaphore.DisposableWaitAsync())
                 {
-                    var db = scope
-                        .ServiceProvider
-                        .GetService<OrleansEFContext>();
-
-                    var row = await db
+                    var row = await _orleansEfContext
                         .Memberships
                         .FirstOrDefaultAsync(a =>
                             a.DeploymentId == _clusterOptions.ClusterId &&
@@ -284,7 +277,7 @@ namespace Orleans.EntityFrameworkCore
 
                     row.IAmAliveTime = entry.IAmAliveTime;
 
-                    await db.SaveChangesAsync();
+                    await _orleansEfContext.SaveChangesAsync();
 
                     _logger.Info(
                         0, "{0}: {1}", nameof(UpdateIAmAlive),
@@ -323,13 +316,9 @@ namespace Orleans.EntityFrameworkCore
                 if (tableVersion == null)
                     throw new ArgumentNullException(nameof(tableVersion));
 
-                using (var scope = _services.CreateScope())
+                using (await _semaphore.DisposableWaitAsync())
                 {
-                    var db = scope
-                        .ServiceProvider
-                        .GetService<OrleansEFContext>();
-
-                    var row = await db
+                    var row = await _orleansEfContext
                         .Memberships
                         .FirstOrDefaultAsync(a =>
                             a.DeploymentId == _clusterOptions.ClusterId &&
@@ -345,7 +334,7 @@ namespace Orleans.EntityFrameworkCore
 
                     OrleansEFMapper.Map(entry, row);
 
-                    await db.SaveChangesAsync();
+                    await _orleansEfContext.SaveChangesAsync();
 
                     _logger.Info(
                         0, "{0}: {1}", nameof(UpdateRow),

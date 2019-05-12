@@ -6,7 +6,7 @@
     <LangVersion>7.1</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <PackageId>Orleans.EntityFrameworkCore</PackageId>
-    <Version>0.1.8</Version>
+    <Version>0.1.9</Version>
     <Authors>Regan Laitila</Authors>
     <Company></Company>
     <PackageTags>MicrosoftOrleans;Orleans;EntityFrameworkCore;GrainStorage;StorageProvider</PackageTags>
